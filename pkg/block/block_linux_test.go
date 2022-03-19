@@ -11,12 +11,13 @@ package block
 
 import (
 	"fmt"
-	"github.com/jaypipes/ghw/pkg/util"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 	"reflect"
 	"testing"
+
+	"github.com/jaypipes/ghw/pkg/util"
 
 	"github.com/jaypipes/ghw/pkg/context"
 	"github.com/jaypipes/ghw/pkg/linuxpath"
@@ -218,6 +219,28 @@ func TestISCSI(t *testing.T) {
 	diskInventory := disks(ctx, paths)
 	if diskInventory[0].DriveType != DRIVE_TYPE_ISCSI {
 		t.Fatalf("Got drive type %s, but expected ISCSI", diskInventory[0].DriveType)
+	}
+}
+
+func TestDiskPartitionless(t *testing.T) {
+	if _, ok := os.LookupEnv("GHW_TESTING_SKIP_BLOCK"); ok {
+		t.Skip("Skipping block tests.")
+	}
+	baseDir, _ := ioutil.TempDir("", "test")
+	defer os.RemoveAll(baseDir)
+	ctx := context.New()
+	ctx.Chroot = baseDir
+	paths := linuxpath.New(ctx)
+
+	_ = os.MkdirAll(paths.SysBlock, 0755)
+	_ = os.MkdirAll(paths.RunUdevData, 0755)
+
+	// Emulate a disk with no partitions
+	_ = os.Mkdir(filepath.Join(paths.SysBlock, "sda"), 0755)
+	_ = ioutil.WriteFile(filepath.Join(paths.SysBlock, "sda", "dev"), []byte("259:0\n"), 0644)
+	partitions := diskPartitions(ctx, paths, "sda")
+	if len(partitions) == 0 {
+		t.Fatalf("Got no partitions but expected sda")
 	}
 }
 
